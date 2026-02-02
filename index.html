@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1000 ნივთი</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f4; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 400px; margin: auto; margin-bottom: 20px; }
+        input, button { width: 90%; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background: #28a745; color: white; cursor: pointer; border: none; font-weight: bold; }
+        .delete-btn { background: #dc3545 !important; color: white !important; display: block; width: 90%; margin: 10px auto; }
+        #reader { width: 100%; margin-top: 20px; }
+        .hidden { display: none; }
+        .product-img { width: 100%; border-radius: 5px; margin-bottom: 10px; height: 200px; object-fit: cover; }
+        .info-text { text-align: left; padding: 10px; background: #eee; border-radius: 5px; font-size: 14px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-section" class="card">
+        <h2>1000 ნივთი - შესვლა</h2>
+        <input type="email" id="emailInput" placeholder="შეიყვანეთ იმეილი">
+        <button onclick="login()">შესვლა</button>
+    </div>
+
+    <div id="admin-panel" class="card hidden">
+        <h2>ადმინ პანელი</h2>
+        <p>ახალი ნივთის დამატება:</p>
+        <input type="text" id="itemName" placeholder="ნივთის სახელი">
+        <input type="number" id="itemPrice" placeholder="ფასი">
+        <input type="file" id="itemImage" accept="image/*">
+        <button onclick="addItem()" style="background: #28a745;">ნივთის დამატება</button>
+        <hr>
+        <div id="admin-items-view"></div> <hr>
+        <button onclick="showSales()" style="background: #ffc107; color: black;">ვინ იყიდა</button>
+        <div id="sales-list" class="hidden info-text"></div>
+        <button onclick="startScanner()" style="background: #007bff;">სკანირების ჩართვა</button>
+        <div id="reader"></div>
+    </div>
+
+    <div id="user-panel" class="card hidden">
+        <h2>მოგესალმებით, <span id="userDisplay"></span></h2>
+        <div id="products-container"></div>
+        
+        <div id="purchase-form" class="hidden card">
+            <h3>ნივთის ყიდვა</h3>
+            <input type="text" id="firstName" placeholder="სახელი">
+            <input type="text" id="lastName" placeholder="გვარი">
+            <input type="text" id="address" placeholder="მისამართი">
+            <input type="tel" id="phone" placeholder="ტელეფონის ნომერი">
+            <button onclick="confirmPurchase()">დადასტურება და QR</button>
+        </div>
+
+        <div id="qr-container" class="hidden card">
+            <p style="color: green; font-weight: bold;">აჩვენეთ კოდი ადმინს:</p>
+            <div id="qrcode" style="display: flex; justify-content: center; margin: 20px 0;"></div>
+            <p id="summary" class="info-text"></p>
+            <button onclick="location.reload()" style="background: #6c757d;">უკან</button>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = "";
+        let items = JSON.parse(localStorage.getItem('items')) || [];
+        let salesData = JSON.parse(localStorage.getItem('sales')) || [];
+        let selectedItem = null;
+
+        function login() {
+            const email = document.getElementById('emailInput').value;
+            if (!email) return alert("შეიყვანეთ იმეილი!");
+            currentUser = email;
+            document.getElementById('auth-section').classList.add('hidden');
+            if (email === "100@gmail.com") {
+                document.getElementById('admin-panel').classList.remove('hidden');
+                renderAdminItems();
+            } else {
+                document.getElementById('user-panel').classList.remove('hidden');
+                document.getElementById('userDisplay').innerText = email;
+                renderUserItems();
+            }
+        }
+
+        function addItem() {
+            const name = document.getElementById('itemName').value;
+            const price = document.getElementById('itemPrice').value;
+            const imgInput = document.getElementById('itemImage');
+            if (!name || !price || !imgInput.files[0]) return alert("შეავსეთ ყველა ველი!");
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const newItem = { id: Date.now(), name, price, img: e.target.result };
+                items.push(newItem);
+                localStorage.setItem('items', JSON.stringify(items));
+                alert("დაემატა!");
+                renderAdminItems();
+            };
+            reader.readAsDataURL(imgInput.files[0]);
+        }
+
+        function deleteItem(id) {
+            items = items.filter(item => item.id !== id);
+            localStorage.setItem('items', JSON.stringify(items));
+            renderAdminItems();
+        }
+
+        function renderAdminItems() {
+            const container = document.getElementById('admin-items-view');
+            container.innerHTML = "<h3>არსებული ნივთები:</h3>";
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "card";
+                div.innerHTML = `<img src="${item.img}" class="product-img"><h4>${item.name}</h4><button class="delete-btn" onclick="deleteItem(${item.id})">წაშლა 🗑️</button>`;
+                container.appendChild(div);
+            });
+        }
+
+        function renderUserItems() {
+            const container = document.getElementById('products-container');
+            container.innerHTML = items.length ? "" : "<p>ნივთები არ არის.</p>";
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "card";
+                div.innerHTML = `<img src="${item.img}" class="product-img"><h3>${item.name}</h3><p>${item.price}₾</p><button onclick="initiatePurchase(${item.id})">ყიდვა</button>`;
+                container.appendChild(div);
+            });
+        }
+
+        function initiatePurchase(id) {
+            selectedItem = items.find(i => i.id === id);
+            document.getElementById('products-container').classList.add('hidden');
+            document.getElementById('purchase-form').classList.remove('hidden');
+        }
+
+        function confirmPurchase() {
+            const fName = document.getElementById('firstName').value;
+            const lName = document.getElementById('lastName').value;
+            const addr = document.getElementById('address').value;
+            const ph = document.getElementById('phone').value;
+            if (!fName || !lName || !addr || !ph) return alert("შეავსეთ ველები!");
+
+            const info = `ნივთი: ${selectedItem.name}, მყიდველი: ${fName} ${lName}, Gmail: ${currentUser}, მისამართი: ${addr}, ტელ: ${ph}`;
+            salesData.push(info);
+            localStorage.setItem('sales', JSON.stringify(salesData));
+
+            document.getElementById('purchase-form').classList.add('hidden');
+            document.getElementById('qr-container').classList.remove('hidden');
+            
+            // QR გენერაცია - setTimeout-ით დაზღვევა რომ ელემენტი მზად იყოს
+            setTimeout(() => {
+                document.getElementById("qrcode").innerHTML = "";
+                new QRCode(document.getElementById("qrcode"), { text: info, width: 200, height: 200 });
+                document.getElementById('summary').innerText = info;
+            }, 100);
+        }
+
+        function showSales() {
+            const list = document.getElementById('sales-list');
+            list.innerHTML = salesData.length ? salesData.join("<br><hr>") : "გაყიდვები არ არის.";
+            list.classList.toggle('hidden');
+        }
+
+        function startScanner() {
+            const html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+                alert("მონაცემები:\n" + text);
+                html5QrCode.stop();
+            }).catch(() => alert("კამერა ვერ ჩაირთო!"));
+        }
+    </script>
+</body>
+</html>
