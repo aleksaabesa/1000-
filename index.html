@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1000 ნივთი</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f4; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 400px; margin: auto; margin-bottom: 20px; }
+        input, button { width: 90%; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background: #28a745; color: white; cursor: pointer; border: none; font-weight: bold; }
+        #reader { width: 100%; margin-top: 20px; }
+        .hidden { display: none; }
+        .info-text { text-align: left; padding: 10px; background: #eee; border-radius: 5px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-section" class="card">
+        <h2>1000 ნივთი - შესვლა</h2>
+        <input type="email" id="emailInput" placeholder="შეიყვანეთ იმეილი">
+        <button onclick="login()">შესვლა</button>
+    </div>
+
+    <div id="admin-panel" class="card hidden">
+        <h2>ადმინ პანელი (100@gmail.com)</h2>
+        <p>ნივთის დამატება:</p>
+        <input type="text" id="itemName" placeholder="ნივთის სახელი">
+        <input type="number" id="itemPrice" placeholder="ფასი">
+        <input type="file" accept="image/*" capture="camera">
+        <button onclick="alert('ნივთი დაემატა!')">ნივთის დამატება</button>
+        <hr>
+        <button onclick="showSales()" style="background: #ffc107; color: black;">ვინ იყიდა</button>
+        <div id="sales-list" class="hidden info-text"></div>
+        <button onclick="startScanner()" style="background: #007bff;">სკანირების ჩართვა</button>
+        <div id="reader"></div>
+    </div>
+
+    <div id="user-panel" class="card hidden">
+        <h2>მოგესალმებით, <span id="userDisplay"></span></h2>
+        <div id="purchase-form">
+            <p>ნივთი: მაგიდა - 150₾</p>
+            <input type="text" id="firstName" placeholder="სახელი">
+            <input type="text" id="lastName" placeholder="გვარი">
+            <input type="text" id="address" placeholder="მისამართი">
+            <input type="tel" id="phone" placeholder="ტელეფონის ნომერი">
+            <button onclick="buyProduct()">ყიდვა</button>
+        </div>
+        <div id="qr-container" class="hidden">
+            <p style="color: green; font-weight: bold;">წარმატებით შეიძინეთ! აჩვენეთ კოდი ადმინს:</p>
+            <div id="qrcode" style="display: flex; justify-content: center; padding: 10px; background: white;"></div>
+            <p id="summary" class="info-text" style="margin-top:10px;"></p>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = "";
+        let salesData = []; // დროებითი ბაზა გაყიდვებისთვის
+
+        function login() {
+            const email = document.getElementById('emailInput').value;
+            if (!email) return alert("შეიყვანეთ იმეილი!");
+
+            currentUser = email;
+            document.getElementById('auth-section').classList.add('hidden');
+
+            if (email === "100@gmail.com") {
+                document.getElementById('admin-panel').classList.remove('hidden');
+            } else {
+                document.getElementById('user-panel').classList.remove('hidden');
+                document.getElementById('userDisplay').innerText = email;
+            }
+        }
+
+        function buyProduct() {
+            const fName = document.getElementById('firstName').value;
+            const lName = document.getElementById('lastName').value;
+            const addr = document.getElementById('address').value;
+            const ph = document.getElementById('phone').value;
+
+            if (!fName || !lName || !addr || !ph) {
+                return alert("გთხოვთ შეავსოთ ყველა ველი!");
+            }
+
+            const purchaseInfo = `მყიდველი: ${fName} ${lName}, იმეილი: ${currentUser}, მისამართი: ${addr}, ტელ: ${ph}`;
+            
+            // ინფორმაციის შენახვა ადმინისთვის
+            salesData.push(purchaseInfo);
+
+            document.getElementById('purchase-form').classList.add('hidden');
+            document.getElementById('qr-container').classList.remove('hidden');
+            
+            // QR კოდის გასუფთავება ძველი მონაცემებისგან
+            document.getElementById("qrcode").innerHTML = "";
+            
+            // ახალი QR კოდის გენერაცია
+            new QRCode(document.getElementById("qrcode"), {
+                text: purchaseInfo,
+                width: 200,
+                height: 200
+            });
+
+            document.getElementById('summary').innerText = purchaseInfo;
+        }
+
+        function showSales() {
+            const list = document.getElementById('sales-list');
+            if (salesData.length === 0) {
+                list.innerHTML = "ჯერ არავის არაფერი უყიდია.";
+            } else {
+                list.innerHTML = "<strong>გაყიდვების ისტორია:</strong><br>" + salesData.join("<br><hr>");
+            }
+            list.classList.toggle('hidden');
+        }
+
+        function startScanner() {
+            const html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    alert("სკანირებულია დეტალები:\n" + decodedText + "\n\nსტატუსი: დადასტურებულია ✅");
+                    html5QrCode.stop();
+                }
+            ).catch(err => alert("კამერა ვერ ჩაირთო!"));
+        }
+    </script>
+</body>
+</html>
